@@ -5,54 +5,37 @@ import com.iafenvoy.iceandfire.config.IafCommonConfig;
 import com.iafenvoy.iceandfire.registry.IafRenderers;
 import com.iafenvoy.jupiter.ConfigManager;
 import com.iafenvoy.jupiter.render.screen.ConfigSelectScreen;
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.api.Environment;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
-import net.minecraft.server.packs.PackType;
-import net.minecraft.server.packs.repository.Pack;
-import net.minecraft.server.packs.repository.PackSource;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.EventPriority;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.ModLoadingContext;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.fml.common.Mod;
-import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
-import net.neoforged.neoforge.client.extensions.common.RegisterClientExtensionsEvent;
-import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
-import net.neoforged.neoforge.event.AddPackFindersEvent;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
-@Mod(value = IceAndFire.MOD_ID, dist = Dist.CLIENT)
-@EventBusSubscriber(
-        modid = IceAndFire.MOD_ID,
-        value = Dist.CLIENT
-)
-public class IceAndFireClient {
-    public IceAndFireClient() {
+@Environment(EnvType.CLIENT)
+public class IceAndFireClient implements ClientModInitializer {
+    private static final Logger LOGGER = LogManager.getLogger();
+
+    @Override
+    public void onInitializeClient() {
+        LOGGER.info("Initializing Ice And Fire Client for Fabric 26.3");
+        
         ConfigManager.getInstance().registerConfigHandler(IafClientConfig.INSTANCE);
+        ConfigManager.getInstance().registerConfigHandler(IafCommonConfig.INSTANCE);
 
-    }
-
-    /**
-     * Uranus snapshots {@code IArmorRendererBase.RENDERERS} during this event,
-     * which fires while Minecraft is constructed — well before {@link FMLClientSetupEvent}.
-     */
-    @SubscribeEvent(priority = EventPriority.HIGHEST)
-    public static void registerClientExtensions(RegisterClientExtensionsEvent event) {
-        IafRenderers.registerArmorRenderers();
-    }
-
-    @SubscribeEvent
-    public static void init(FMLClientSetupEvent event) {
-        IafRenderers.registerModelPredicates();
+        // Register client-side renderers
         IafRenderers.registerArmorRenderers();
         IafRenderers.registerItemRenderers();
+        IafRenderers.registerModelPredicates();
 
-
-        ModLoadingContext.get().registerExtensionPoint(IConfigScreenFactory.class, () -> (container, parent) -> ConfigSelectScreen.builder(Component.translatable("config.iceandfire.title"), parent).server(IafCommonConfig.INSTANCE).client(IafClientConfig.INSTANCE).build());
-    }
-
-    @SubscribeEvent
-    public static void onAddPackFinders(AddPackFindersEvent event) {
-        event.addPackFinders(Identifier.fromNamespaceAndPath(IceAndFire.MOD_ID, "resourcepacks/iaf_legacy"), PackType.CLIENT_RESOURCES, Component.translatable("resourcePack.iceandfire.legacy.name"), PackSource.BUILT_IN, false, Pack.Position.TOP);
+        // Register client lifecycle event for additional setup
+        ClientLifecycleEvents.CLIENT_STARTED.register(client -> {
+            IafRenderers.registerArmorRenderers();
+            IafRenderers.registerItemRenderers();
+            
+            // Register mod menu/config screen using Fabric's mod menu integration
+            // This will be handled through mod menu if available, or through Fabric's native screen system
+        });
     }
 }
